@@ -28,15 +28,28 @@
 ;;  - pet
 
 (defn split-pipe-str [s]
-  (vec (.split s "\\s*\\|\\s*")))
+  (vec (map keyword (.split s "\\s*\\|\\s*"))))
+
+(defn list->set [things]
+  (loop [res #{}
+         [thing & things] things]
+    (if thing
+      (recur (conj res thing) things)
+      res)))
+
 
 (def *verbose* false)
 
-(def *colors*        (split-pipe-str "blue   | green      | red     | white    | yellow"))
-(def *nationalities* (split-pipe-str "Dane   | Englishman | German  | Swede    | Norwegian"))
-(def *drinks*        (split-pipe-str "bier   | coffee     | milk    | tea      | water"))
-(def *tobaccos*      (split-pipe-str "Blend  | BlueMaster | Dunhill | PallMall | Prince"))
-(def *pets*          (split-pipe-str "birds  | cats       | dogs    | fish     | horses"))
+(def *colors*            (split-pipe-str "blue   | green      | red     | white    | yellow"))
+(def *colors-set*        (list->set *colors*))
+(def *nationalities*     (split-pipe-str "Dane   | Englishman | German  | Swede    | Norwegian"))
+(def *nationalities-set* (list->set *nationalities*))
+(def *drinks*            (split-pipe-str "bier   | coffee     | milk    | tea      | water"))
+(def *drinks-set*        (list->set *drinks*))
+(def *tobaccos*          (split-pipe-str "Blend  | BlueMaster | Dunhill | PallMall | Prince"))
+(def *tobaccos-set*      (list->set *tobaccos*))
+(def *pets*              (split-pipe-str "birds  | cats       | dogs    | fish     | horses"))
+(def *pets-set*          (list->set *pets*))
 
 (def *attributes* {:color       *colors*
                    :nationality *nationalities*
@@ -101,91 +114,99 @@
 (def *einstein-score-fns*
      [{:name "1. The Englishman lives in the red house."
        :pred (fn [houses]
-               (some #(and (= "Englishman" (house-nationality %))
-                           (= "red"        (house-color %)))
+               (some #(and (= :Englishman (house-nationality %))
+                           (= :red        (house-color %)))
                      houses))}
       {:name "2. The Swede keeps dogs."
        :pred
        (fn [houses]
-         (some #(and (= "Swede" (house-nationality %))
-                     (= "dogs"  (house-pet %)))
+         (some #(and (= :Swede (house-nationality %))
+                     (= :dogs  (house-pet %)))
                houses))}
       {:name "3. The Dane drinks tea."
        :pred
        (fn [houses]
-         (some #(and (= "Dane" (house-nationality %))
-                     (= "tea"  (house-pet %)))
+         (some #(and (= :Dane (house-nationality %))
+                     (= :tea  (house-pet %)))
                houses))}
       {:name "4. The green house is just to the left of the white one."
        :pred
        (fn [houses]
-         (let [green-pos (house-position houses #(= "green" (house-color %)))
-               white-pos (house-position houses #(= "white" (house-color %)))]
+         (let [green-pos (house-position houses #(= :green (house-color %)))
+               white-pos (house-position houses #(= :white (house-color %)))]
            (and green-pos
                 white-pos
                 (= 1 (- white-pos green-pos)))))}
       {:name "5. The owner of the green house drinks coffee."
        :pred
        (fn [houses]
-         (some #(and (= "green"   (house-color %))
-                     (= "coffee"  (house-drink %)))
+         (some #(and (= :green   (house-color %))
+                     (= :coffee  (house-drink %)))
                houses))}
       {:name "6. The Pall Mall smoker keeps birds."
        :pred
        (fn [houses]
-         (some #(and (= "PallMall"   (house-tobacco %))
-                     (= "birds"      (house-pet %)))
+         (some #(and (= :PallMall   (house-tobacco %))
+                     (= :birds      (house-pet %)))
                houses))}
       {:name "7. The owner of the yellow house smokes Dunhills."
        :pred
        (fn [houses]
-         (some #(and (= "yellow"    (house-color %))
-                     (= "Dunhills"  (house-tobacco %)))
+         (some #(and (= :yellow    (house-color %))
+                     (= :Dunhills  (house-tobacco %)))
                houses))}
       {:name "8. The man in the center house drinks milk."
        :pred
        (fn [houses]
-         #(= "milk" (house-drink (nth houses 2))))}
-      {:name "9. The Norwegian lives in the first house."
+         #(= :milk (house-drink (nth houses 2))))}
+      {:name ":9 The Norwegian lives in the first house."
        :pred
        (fn [houses]
-         #(= "Norwegian" (house-nationality (nth houses 0))))}
+         #(= :Norwegian (house-nationality (nth houses 0))))}
       {:name "10. The Blend smoker has a neighbor who keeps cats."
        :pred
        (fn [houses]
          (has-neighbor houses
-                       (house-position houses #(= "Blend" (house-tobacco %)))
-                       #(= "cats" (house-pet %))))}
+                       (house-position houses #(= :Blend (house-tobacco %)))
+                       #(= :cats (house-pet %))))}
       {:name "11. The man who smokes Blue Masters drinks bier."
        :pred
        (fn [houses]
-         (some #(and (= "BlueMaster"    (house-tobacco %))
-                     (= "bier"          (house-drink %)))
+         (some #(and (= :BlueMaster    (house-tobacco %))
+                     (= :bier          (house-drink %)))
                houses))}
       {:name "12. The man who keeps horses lives next to the Dunhill smoker."
        :pred
        (fn [houses]
          (has-neighbor houses
-                       (house-position houses #(= "horses" (house-pet %)))
-                       #(= "Dunhill" (house-tobacco %))))}
+                       (house-position houses #(= :horses (house-pet %)))
+                       #(= :Dunhill (house-tobacco %))))}
       {:name "13. The German smokes Prince."
        :pred
        (fn [houses]
-         (some #(and (= "Prince"    (house-tobacco %))
-                     (= "German"    (house-nationality %)))
+         (some #(and (= :Prince    (house-tobacco %))
+                     (= :German    (house-nationality %)))
                houses))}
       {:name "14. The Norwegian lives next to the blue house."
        :pred
        (fn [houses]
          (has-neighbor houses
-                       (house-position houses #(= "blue" (house-color %)))
-                       #(= "Norwegian" (house-nationality %))))}
+                       (house-position houses #(= :blue (house-color %)))
+                       #(= :Norwegian (house-nationality %))))}
       {:name "15. The Blend smoker has a neighbor who drinks water."
        :pred
        (fn [houses]
          (has-neighbor houses
-                       (house-position houses #(= "Blend" (house-tobacco %)))
-                       #(= "water" (house-drink %))))}])
+                       (house-position houses #(= :Blend (house-tobacco %)))
+                       #(= :water (house-drink %))))}])
+
+(def *uniqueness-predicates*
+  [
+   {:name "unique.1 the 5 house color should be represented once and only once."
+    :pred
+    (fn [houses]
+      (every? *colors-set* (map house-color houses)))}
+   ])
 
 (defn log [& stuff]
   (if *verbose*
@@ -287,7 +308,7 @@
   (def x (random-genome))
 
   x
-  ["red" "Englishman" "tea" "Dunhill" "dogs" "blue" "Norwegian" "water" "PallMall" "horses" "red" "Swede" "bier" "PallMall" "dogs" "green" "Dane" "milk" "Blend" "birds" "red" "Englishman" "tea" "Prince" "horses"]
+  [:red :Englishman :tea :Dunhill :dogs :blue :Norwegian :water :PallMall :horses :red :Swede :bier :PallMall :dogs :green :Dane :milk :Blend :birds :red :Englishman :tea :Prince :horses]
   (get-house x 1)
   (= x (vec (apply concat (map #(get-house x %) (range 0 5)))))
 
@@ -295,17 +316,17 @@
 
   (get-houses x)
 
-  (einstein-fitness-score ["red"   "Englishman"    "tea"   "Dunhill"   "dogs"
-                           "blue"  "Norwegian"     "water" "PallMall"  "horses"
-                           "green" "Swede"         "bier"  "PallMall"  "dogs"
-                           "green" "Dane"          "milk"  "Blend"     "birds"
-                           "blue"  "Englishman"    "tea"   "Prince"    "horses"])
+  (einstein-fitness-score [:red   :Englishman    :tea   :Dunhill   :dogs
+                           :blue  :Norwegian     :water :PallMall  :horses
+                           :green :Swede         :bier  :PallMall  :dogs
+                           :green :Dane          :milk  :Blend     :birds
+                           :blue  :Englishman    :tea   :Prince    :horses])
 
-  (einstein-fitness-score ["green"  "Englishman"    "tea"   "Dunhill"   "dogs"
-                           "white"  "Norwegian"     "water" "PallMall"  "horses"
-                           "green"  "Swede"         "bier"  "PallMall"  "dogs"
-                           "green"  "Dane"          "milk"  "Blend"     "birds"
-                           "blue"   "Englishman"    "tea"   "Prince"    "horses"])
+  (einstein-fitness-score [:green  :Englishman    :tea   :Dunhill   :dogs
+                           :white  :Norwegian     :water :PallMall  :horses
+                           :green  :Swede         :bier  :PallMall  :dogs
+                           :green  :Dane          :milk  :Blend     :birds
+                           :blue   :Englishman    :tea   :Prince    :horses])
   )
 
 
