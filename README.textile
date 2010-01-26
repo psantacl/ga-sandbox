@@ -1,0 +1,13 @@
+h1. Genegic Algorithim Sandbox
+
+This project is a sandbox for learning about genetic algorithims and genetic programming.
+
+h2. Einstein's Puzzle
+
+This is a famous logic puzzle, it leads to a very straightforward representation as a genome and a straightforward implementation of a fitness function, this we think it makes a good pedagological example.
+
+h2. Authors
+
+Paul Santa Clara
+
+Kyle Burton
