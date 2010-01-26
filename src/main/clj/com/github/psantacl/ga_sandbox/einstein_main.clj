@@ -44,6 +44,9 @@
                    :tobacco     *tobaccos*
                    :pet         *pets*})
 
+(def *all-attribute-values*
+     (apply concat (vals *attributes*)))
+
 (def *rand* (java.util.Random.))
 
 (defn rand-elt [lst]
@@ -225,11 +228,11 @@
   (let [total-weight (apply + (map first pairs))
         target       (* (.nextFloat *rand*) total-weight)]
     (loop [[elt & pairs] pairs
-           score        (first elt)]
+           score         0]
       (log "rand-scored-pair-weighted elt=%s score=%s target=%s" elt score target)
-      (cond (not elt)         nil
-            (< target score)  elt
-            :else            (recur pairs (+ score (first elt)))))))
+      (cond (not elt)                         nil
+            (< target (+ (first elt) score))  elt
+            :else                             (recur pairs (+ score (first elt)))))))
 
 (defn breed-new-genome [scored-population]
   (let [[fscore father] (rand-scored-pair-weighted scored-population)
@@ -239,7 +242,7 @@
                 (if (= 0 (.nextInt *rand* 2))
                   (nth father idx)
                   (nth mother idx)))
-              (range 25)))))
+              (range (count father))))))
 
 (defn make-next-generation [population]
   (let [population-size   (count population)
@@ -259,16 +262,17 @@
                        (breed-new-genome survivors))))))))
 
 (comment
+  (breed-new-genome (scored-population (gen-population 10)))
   (count (make-next-generation (gen-population 10)))
 
-  (defn rand-elt-weighted [elts]
-    (let [total-weight (apply + elts)
+  (defn rand-elt-weighted [scores]
+    (let [total-weight (apply + scores)
           target       (* (.nextFloat *rand*) total-weight)]
-      (loop [[elt & elts] elts
-             score        elt]
-        (cond (not elt)         nil
-              (< target score)  elt
-              :else            (recur elts (+ score elt))))))
+      (loop [[curr & scores] scores
+             score           0]
+        (cond (not curr)        nil
+              (< target (+ score curr))  curr
+              :else                      (recur scores (+ score curr))))))
 
   (map (fn [x] (rand-elt-weighted [10 1]))
        (range 10))
@@ -302,7 +306,7 @@
                            "green"  "Swede"         "bier"  "PallMall"  "dogs"
                            "green"  "Dane"          "milk"  "Blend"     "birds"
                            "blue"   "Englishman"    "tea"   "Prince"    "horses"])
-)
+  )
 
 
 (def *positions* [ :color :nationality :drink :tobacco :pet ])
