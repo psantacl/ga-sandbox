@@ -37,8 +37,12 @@
       (recur (conj res thing) things)
       res)))
 
-
 (def *verbose* false)
+
+(defn log [& stuff]
+  (if *verbose*
+    (prn (apply format stuff))))
+
 
 (def *colors*            (split-pipe-str "blue   | green      | red     | white    | yellow"))
 (def *colors-set*        (list->set *colors*))
@@ -202,15 +206,19 @@
 
 (def *uniqueness-predicates*
   [
-   {:name "unique.1 the 5 house color should be represented once and only once."
-    :pred
-    (fn [houses]
-      (every? *colors-set* (map house-color houses)))}
+   {:name "unique.1 color"
+    :pred (fn [houses] (= (count (list->set (map house-color       houses))) (count houses)))}
+   {:name "unique.2 nationality"
+    :pred (fn [houses] (= (count (list->set (map house-nationality houses))) (count houses)))}
+   {:name "unique.3 drink"
+    :pred (fn [houses] (= (count (list->set (map house-drink       houses))) (count houses)))}
+   {:name "unique.4 tobacco"
+    :pred (fn [houses] (= (count (list->set (map house-tobacco     houses))) (count houses)))}
+   {:name "unique.5 pet"
+    :pred (fn [houses] (= (count (list->set (map house-pet         houses))) (count houses)))}
    ])
 
-(defn log [& stuff]
-  (if *verbose*
-    (prn (apply format stuff))))
+(def *all-fitness-predicates* (concat *einstein-score-fns* *uniqueness-predicates*))
 
 ;; NB: can also score on uniqueness of data values (eg: 1 red house, 1 with Englishman)
 (defn einstein-fitness-score [genome]
@@ -226,8 +234,8 @@
                             (do
                               (log "%s: miss" name)
                               false))))
-                      *einstein-score-fns*))]
-    (/ (* 1.0 score) (count *einstein-score-fns*))))
+                      *all-fitness-predicates*))]
+    (/ (* 1.0 score) (count *all-fitness-predicates*))))
 
 (defn gen-population [size]
   (for [x (range 0 size)]
