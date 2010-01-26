@@ -30,6 +30,8 @@
 (defn split-pipe-str [s]
   (vec (.split s "\\s*\\|\\s*")))
 
+(def *verbose* false)
+
 (def *colors*        (split-pipe-str "blue   | green      | red     | white    | yellow"))
 (def *nationalities* (split-pipe-str "Dane   | Englishman | German  | Swede    | Norwegian"))
 (def *drinks*        (split-pipe-str "bier   | coffee     | milk    | tea      | water"))
@@ -78,7 +80,6 @@
 (defn house-pet         [house] (nth house 4))
 
 (defn house-position [houses pred]
-  ;;(prn (format "house-position: houses=%s pred=%s" hosues pred))
   (loop [pos 0
          [house & houses] houses]
     (cond (pred house)   pos
@@ -86,125 +87,198 @@
           true           (recur (inc pos) houses))))
 
 (defn has-neighbor [houses house-pos pred]
-  (cond (= 0 house-pos)                         (pred (nth houses 1))
+  (cond (not house-pos)                         false
+        (= 0 house-pos)                         (pred (nth houses 1))
         (= 4 house-pos)                         (pred (nth houses 3))
         (pred (nth houses (dec house-pos)))     true
         (pred (nth houses (inc house-pos)))     true
         :else                                   false))
 
 
+(def *einstein-score-fns*
+     [{:name "1. The Englishman lives in the red house."
+       :pred (fn [houses]
+               (some #(and (= "Englishman" (house-nationality %))
+                           (= "red"        (house-color %)))
+                     houses))}
+      {:name "2. The Swede keeps dogs."
+       :pred
+       (fn [houses]
+         (some #(and (= "Swede" (house-nationality %))
+                     (= "dogs"  (house-pet %)))
+               houses))}
+      {:name "3. The Dane drinks tea."
+       :pred
+       (fn [houses]
+         (some #(and (= "Dane" (house-nationality %))
+                     (= "tea"  (house-pet %)))
+               houses))}
+      {:name "4. The green house is just to the left of the white one."
+       :pred
+       (fn [houses]
+         (let [green-pos (house-position houses #(= "green" (house-color %)))
+               white-pos (house-position houses #(= "white" (house-color %)))]
+           (and green-pos
+                white-pos
+                (= 1 (- white-pos green-pos)))))}
+      {:name "5. The owner of the green house drinks coffee."
+       :pred
+       (fn [houses]
+         (some #(and (= "green"   (house-color %))
+                     (= "coffee"  (house-drink %)))
+               houses))}
+      {:name "6. The Pall Mall smoker keeps birds."
+       :pred
+       (fn [houses]
+         (some #(and (= "PallMall"   (house-tobacco %))
+                     (= "birds"      (house-pet %)))
+               houses))}
+      {:name "7. The owner of the yellow house smokes Dunhills."
+       :pred
+       (fn [houses]
+         (some #(and (= "yellow"    (house-color %))
+                     (= "Dunhills"  (house-tobacco %)))
+               houses))}
+      {:name "8. The man in the center house drinks milk."
+       :pred
+       (fn [houses]
+         #(= "milk" (house-drink (nth houses 2))))}
+      {:name "9. The Norwegian lives in the first house."
+       :pred
+       (fn [houses]
+         #(= "Norwegian" (house-nationality (nth houses 0))))}
+      {:name "10. The Blend smoker has a neighbor who keeps cats."
+       :pred
+       (fn [houses]
+         (has-neighbor houses
+                       (house-position houses #(= "Blend" (house-tobacco %)))
+                       #(= "cats" (house-pet %))))}
+      {:name "11. The man who smokes Blue Masters drinks bier."
+       :pred
+       (fn [houses]
+         (some #(and (= "BlueMaster"    (house-tobacco %))
+                     (= "bier"          (house-drink %)))
+               houses))}
+      {:name "12. The man who keeps horses lives next to the Dunhill smoker."
+       :pred
+       (fn [houses]
+         (has-neighbor houses
+                       (house-position houses #(= "horses" (house-pet %)))
+                       #(= "Dunhill" (house-tobacco %))))}
+      {:name "13. The German smokes Prince."
+       :pred
+       (fn [houses]
+         (some #(and (= "Prince"    (house-tobacco %))
+                     (= "German"    (house-nationality %)))
+               houses))}
+      {:name "14. The Norwegian lives next to the blue house."
+       :pred
+       (fn [houses]
+         (has-neighbor houses
+                       (house-position houses #(= "blue" (house-color %)))
+                       #(= "Norwegian" (house-nationality %))))}
+      {:name "15. The Blend smoker has a neighbor who drinks water."
+       :pred
+       (fn [houses]
+         (has-neighbor houses
+                       (house-position houses #(= "Blend" (house-tobacco %)))
+                       #(= "water" (house-drink %))))}])
+
+(defn log [& stuff]
+  (if *verbose*
+    (prn (apply format stuff))))
+
 ;; NB: can also score on uniqueness of data values (eg: 1 red house, 1 with Englishman)
 (defn einstein-fitness-score [genome]
-  (let [houses (get-houses genome)]
-   (count (filter
-           (fn [test]
-             (let [{:keys [name pred]} test]
-               (if (pred houses)
-                 (do
-                   (prn name ":hit!")
-                   true)
-                 (do
-                   (prn name ":miss")
-                   false))))
-           [
-            {:name "1. The Englishman lives in the red house."
-             :pred (fn [houses]
-              (some #(and (= "Englishman" (house-nationality %))
-                          (= "red"        (house-color %)))
-                    houses))}
-            {:name "2. The Swede keeps dogs."
-             :pred
-             (fn [houses]
-              (some #(and (= "Swede" (house-nationality %))
-                          (= "dogs"  (house-pet %)))
-                    houses))}
-            {:name "3. The Dane drinks tea."
-             :pred
-             (fn [houses]
-              (some #(and (= "Dane" (house-nationality %))
-                          (= "tea"  (house-pet %)))
-                    houses))}
-;;             {:name "4. The green house is just to the left of the white one."
-;;              :pred
-;;              (fn [houses]
-;;               (let [green-pos (house-position houses #(= "green" (house-color %)))
-;;                     white-pos (house-position houses #(= "white" (house-color %)))]
-;;                 (and green-pos
-;;                      white-pos
-;;                      (= 1 (- white-pos green-pos)))))}
-            {:name "5. The owner of the green house drinks coffee."
-             :pred
-             (fn [houses]
-              (some #(and (= "green"   (house-color %))
-                          (= "coffee"  (house-drink %)))
-                    houses))}
-            {:name "6. The Pall Mall smoker keeps birds."
-             :pred
-             (fn [houses]
-              (some #(and (= "PallMall"   (house-tobacco %))
-                          (= "birds"      (house-pet %)))
-                    houses))}
-            {:name "7. The owner of the yellow house smokes Dunhills."
-             :pred
-             (fn [houses]
-              (some #(and (= "yellow"    (house-color %))
-                          (= "Dunhills"  (house-tobacco %)))
-                    houses))}
+  (log "einstein-fitness-score: genome=%s" genome)
+  (let [houses (get-houses genome)
+        score (count (filter
+                      (fn [test]
+                        (let [{:keys [name pred]} test]
+                          (if (pred houses)
+                            (do
+                              (log "%s :hit!" name)
+                              true)
+                            (do
+                              (log "%s: miss" name)
+                              false))))
+                      *einstein-score-fns*))]
+    (/ (* 1.0 score) (count *einstein-score-fns*))))
 
-            {:name "8. The man in the center house drinks milk."
-             :pred
-             (fn [houses]
-               #(= "milk" (house-drink (nth houses 2))))}
+(defn gen-population [size]
+  (for [x (range 0 size)]
+    (random-genome)))
 
-            {:name "9. The Norwegian lives in the first house."
-             :pred
-             (fn [houses]
-               #(= "Norwegian" (house-nationality (nth houses 0))))}
-
-;; HERE
-            {:name "10. The Blend smoker has a neighbor who keeps cats."
-             :pred
-             (fn [houses]
-               (has-neighbor houses
-                             (house-position houses #(= "Blend" (house-tobacco %)))
-                             #(= "cats" (house-pet %))))}
-
-            {:name "11. The man who smokes Blue Masters drinks bier."
-             :pred
-             (fn [houses]
-              (some #(and (= "BlueMaster"    (house-tobacco %))
-                          (= "bier"          (house-drink %)))
-                    houses))}
-            {:name "12. The man who keeps horses lives next to the Dunhill smoker."
-             :pred
-             (fn [houses]
-               (has-neighbor houses
-                             (house-position houses #(= "horses" (house-pet %)))
-                             #(= "Dunhill" (house-tobacco %))))}
-            {:name "13. The German smokes Prince."
-             :pred
-             (fn [houses]
-              (some #(and (= "Prince"    (house-tobacco %))
-                          (= "German"    (house-nationality %)))
-                    houses))}
-
-            {:name "14. The Norwegian lives next to the blue house."
-             :pred
-             (fn [houses]
-               (has-neighbor houses
-                             (house-position houses #(= "blue" (house-color %)))
-                             #(= "Norwegian" (house-nationality %))))}
-            {:name "15. The Blend smoker has a neighbor who drinks water."
-             :pred
-             (fn [houses]
-               (has-neighbor houses
-                             (house-position houses #(= "Blend" (house-tobacco %)))
-                             #(= "water" (house-drink %))))}
-            ]))))
+(defn scored-population [population]
+       (map
+        (fn [g] [(einstein-fitness-score g) g])
+        population))
 
 
+(defn rank-population [population]
+  (sort (fn [a b]
+          (> (first a)
+             (first b)))
+        (scored-population population)))
+
+(defn rand-scored-pair-weighted [pairs]
+  (let [total-weight (apply + (map first pairs))
+        target       (* (.nextFloat *rand*) total-weight)]
+    (loop [[elt & pairs] pairs
+           score        (first elt)]
+      (log "rand-scored-pair-weighted elt=%s score=%s target=%s" elt score target)
+      (cond (not elt)         nil
+            (< target score)  elt
+            :else            (recur pairs (+ score (first elt)))))))
+
+(defn breed-new-genome [scored-population]
+  (let [[fscore father] (rand-scored-pair-weighted scored-population)
+        [mscore mother] (rand-scored-pair-weighted scored-population)]
+    (log "breed-new-genome: father=%s mother=%s" father mother)
+    (vec (map (fn [idx]
+                (if (= 0 (.nextInt *rand* 2))
+                  (nth father idx)
+                  (nth mother idx)))
+              (range 25)))))
+
+(defn make-next-generation [population]
+  (let [population-size   (count population)
+        ranked-population (rank-population population)
+        survivors         (take (/ (count ranked-population) 2)
+                                ranked-population)]
+    (log "contraulations to %s of you, you survived! (out of %s, with %s deaths, sorry, please play again)"
+            (count survivors)
+            (count ranked-population)
+            (- (count ranked-population)
+               (count survivors)))
+    (loop [new-population []]
+      (if (= population-size (count new-population))
+        new-population
+        (do
+          (recur (conj new-population
+                       (breed-new-genome survivors))))))))
 
 (comment
+  (count (make-next-generation (gen-population 10)))
+
+  (defn rand-elt-weighted [elts]
+    (let [total-weight (apply + elts)
+          target       (* (.nextFloat *rand*) total-weight)]
+      (loop [[elt & elts] elts
+             score        elt]
+        (cond (not elt)         nil
+              (< target score)  elt
+              :else            (recur elts (+ score elt))))))
+
+  (map (fn [x] (rand-elt-weighted [10 1]))
+       (range 10))
+
+
+  (count (rank-population (gen-population 10)))
+  (count (scored-population (gen-population 10)))
+
+  (make-next-generation (gen-population 10))
+
 
   (def x (random-genome))
 
