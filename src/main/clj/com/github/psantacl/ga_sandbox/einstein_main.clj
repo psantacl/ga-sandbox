@@ -340,6 +340,9 @@
 
 (def *positions* [ :color :nationality :drink :tobacco :pet ])
 
+
+
+
 (defn -main [& args]
   (prn "in teh mainz"))
 
