@@ -1,4 +1,5 @@
-(ns com.github.psantacl.ga-sandbox.swing)
+(ns com.github.psantacl.ga-sandbox.swing
+  (:require [com.github.psantacl.ga-sandbox.einstein-main :as einstein]))
 
 (def *icons*
   {
@@ -39,11 +40,31 @@
           }
   })
 
+(def *icons-by-symbol*
+     (loop [res {}
+            [k & ks] (keys *icons*)]
+       (if k
+         (recur (merge res (*icons* k))
+                ks)
+         res)))
 
-(def jf (javax.swing.JFrame.))
+(comment
+
+  (count (keys *icons-by-symbol*))
+  ;; => 25
+
+  )
+
+(def *gui* (atom { :jf (javax.swing.JFrame.)}))
 (def split-pane (javax.swing.JSplitPane. javax.swing.JSplitPane/VERTICAL_SPLIT))
 (.setDividerLocation split-pane 300)
-(.setContentPane jf split-pane)
+(.setContentPane (:jf @*gui*) split-pane)
+
+(comment
+
+  (:jf @*gui*)
+  (.setVisible (:jf @*gui*) true)
+)
 
 (def model
      (proxy [javax.swing.table.AbstractTableModel]
@@ -101,11 +122,11 @@
     (.setMinWidth (.getColumn (.getColumnModel jt) ii) 128))
   (.setRowHeight jt 128)
 
-(.add (.getContentPane jf) js)
+(.add (.getContentPane (:jf @*gui*)) js)
 
 
 (def lower-frame (javax.swing.JPanel. (java.awt.BorderLayout.)))
-(.add (.getContentPane jf) lower-frame)
+(.add (.getContentPane (:jf @*gui*)) lower-frame)
 (.setLayout lower-frame (javax.swing.BoxLayout. lower-frame javax.swing.BoxLayout/Y_AXIS))
 
 (def messages
@@ -113,8 +134,8 @@
 
 (.add lower-frame messages java.awt.BorderLayout/CENTER)
 
-(.setExtendedState jf (bit-or (.getExtendedState jf) java.awt.Frame/MAXIMIZED_BOTH))
-(.pack jf)
+(.setExtendedState (:jf @*gui*) (bit-or (.getExtendedState (:jf @*gui*)) java.awt.Frame/MAXIMIZED_BOTH))
+(.pack (:jf @*gui*))
 
 ;; TODO: need to pull these out of a differnet structure (see the map at the top)
 ;; (doseq [ii (range 5)]
@@ -122,12 +143,33 @@
 
 (.fireTableDataChanged model)
 
-(.setVisible jf true)
+(def *gui-agent* (agent {:gui *gui* :best-genome (random-genome)}))
+
+(defn show-gui [agent]
+  (prn (format "show-gui: agent=%s" agent))
+  (.setVisible (:jf (:gui @agent)) true)
+  agent)
+
+;; (prn (format "%s" @*gui-agent*))
+
+(defn stop-gui [agent]
+  ;; TODO: make the gui here and set it as the agent state...
+  (.setVisible (:jf (:gui @agent)) false)
+  agent)
+
+(defn show-genome [agent genome]
+  ;; update the table with the new genome here
+  (assoc agent :best-genome genome))
 
 
 (comment
 
+  (send-off *gui-agent* show-gui)
+  (send-off *gui-agent* show-gui (random-genome))
+  (send-off *gui-agent* stop-gui)
 
+  (agent-errors *gui-agent*)
+  (clear-agent-errors *gui-agent*)
 
   ;; some default icons for the grid
 

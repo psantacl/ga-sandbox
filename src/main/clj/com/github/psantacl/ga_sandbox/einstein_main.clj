@@ -1,5 +1,4 @@
 (ns com.github.psantacl.ga-sandbox.einstein-main
-  (:require)
   (:gen-class))
 
 ;; http://www.stanford.edu/~laurik/fsmbook/examples/Einstein%27sPuzzle.html
