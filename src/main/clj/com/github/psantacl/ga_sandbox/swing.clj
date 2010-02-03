@@ -143,18 +143,22 @@
 
 (.fireTableDataChanged model)
 
-(def *gui-agent* (agent {:gui *gui* :best-genome (random-genome)}))
+(def *gui-agent* (agent {:gui *gui* :best-genome nil})) ;'(random-genome)
 
 (defn show-gui [agent]
   (prn (format "show-gui: agent=%s" agent))
-  (.setVisible (:jf (:gui @agent)) true)
+  (.setVisible (:jf @(:gui agent)) true)
   agent)
+
+;; *gui*
+;; *gui-agent*
+;; (.setVisible (:jf @(:gui @*gui-agent*)) true)
 
 ;; (prn (format "%s" @*gui-agent*))
 
 (defn stop-gui [agent]
   ;; TODO: make the gui here and set it as the agent state...
-  (.setVisible (:jf (:gui @agent)) false)
+  (.setVisible (:jf @(:gui agent)) false)
   agent)
 
 (defn show-genome [agent genome]
@@ -168,7 +172,10 @@
   (send-off *gui-agent* show-gui (random-genome))
   (send-off *gui-agent* stop-gui)
 
-  (agent-errors *gui-agent*)
+  (def errs (agent-errors *gui-agent*))
+
+  (.printStackTrace (first errs))
+
   (clear-agent-errors *gui-agent*)
 
   ;; some default icons for the grid
