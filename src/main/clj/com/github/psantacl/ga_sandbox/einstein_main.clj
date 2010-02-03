@@ -75,6 +75,14 @@
    (rand-elt (:tobacco     *attributes*))
    (rand-elt (:pet         *attributes*))])
 
+(def *genome-template*
+     (vec (apply concat (for [x (range 5)]
+                          [(:color       *attributes*)
+                           (:nationality *attributes*)
+                           (:drink       *attributes*)
+                           (:tobacco     *attributes*)
+                           (:pet         *attributes*)]))))
+
 ;; (random-house)
 
 (defn random-genome []
@@ -241,9 +249,9 @@
     (random-genome)))
 
 (defn scored-population [population]
-       (map
-        (fn [g] [(einstein-fitness-score g) g])
-        population))
+  (pmap
+   (fn [g] [(einstein-fitness-score g) g])
+   population))
 
 
 (defn rank-population [population]
@@ -266,13 +274,13 @@
   (let [[fscore father] (rand-scored-pair-weighted scored-population)
         [mscore mother] (rand-scored-pair-weighted scored-population)]
     (log "breed-new-genome: father=%s mother=%s" father mother)
-    (vec (map (fn [idx]
-                (if (= 0 (.nextInt *rand* 2))
-                  (nth father idx)
-                  (nth mother idx)))
-              (range (count father))))))
+    (vec (pmap (fn [idx]
+                 (if (= 0 (.nextInt *rand* 2))
+                   (nth father idx)
+                   (nth mother idx)))
+               (range (count father))))))
 
-(defn mutate-genome [genome mutation-rate chromosome-mutation-rate]
+(defn mutate-genome-1 [genome mutation-rate chromosome-mutation-rate]
   (if (<= (.nextFloat *rand*) mutation-rate)
     (vec (map (fn [chromosome]
                 (if (<= (.nextFloat *rand*) chromosome-mutation-rate)
@@ -281,7 +289,18 @@
               genome))
     genome))
 
+(defn mutate-genome [genome mutation-rate chromosome-mutation-rate]
+  (if (<= (.nextFloat *rand*) mutation-rate)
+    (vec (for [idx (range (count genome))]
+           (if (<= (.nextFloat *rand*) chromosome-mutation-rate)
+                   (rand-elt (nth *genome-template* idx))
+                   (nth genome idx))))
+    genome))
+
 (comment
+
+
+
 
   (let [g    (random-genome)
         rate 0.1
@@ -334,7 +353,11 @@
 
   (do
     (prn "starting simulation")
-    (time (run-simulation (gen-population 1000) 0.9 1000)))
+    (time (run-simulation (gen-population 1000) 1.0 1000)))
+
+  (do
+    (prn "starting simulation")
+    (time (run-simulation (gen-population 1000) 1.0 100)))
 
   (breed-new-genome (scored-population (gen-population 10)))
   (count (make-next-generation (gen-population 10)))
