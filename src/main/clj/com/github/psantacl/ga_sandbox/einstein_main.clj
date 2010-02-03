@@ -272,6 +272,29 @@
                   (nth mother idx)))
               (range (count father))))))
 
+(defn mutate-genome [genome mutation-rate chromosome-mutation-rate]
+  (if (<= (.nextFloat *rand*) mutation-rate)
+    (vec (map (fn [chromosome]
+                (if (<= (.nextFloat *rand*) chromosome-mutation-rate)
+                  (rand-elt *all-attribute-values*)
+                  chromosome))
+              genome))
+    genome))
+
+(comment
+
+  (let [g    (random-genome)
+        rate 0.1
+        m    (mutate-genome g 0.5 rate)]
+    (prn (format "%s %s!" rate (if (= g m) "same" "different")))
+    (prn (format "genome:  %s" g))
+    (prn (format "mutated: %s" m)))
+
+)
+
+(def *mutation-rate* (atom 0.5))
+(def *chromosome-mutation-rate* (atom 0.25))
+
 (defn make-next-generation [population]
   (let [population-size   (count population)
         ranked-population (rank-population population)
@@ -282,14 +305,37 @@
             (count ranked-population)
             (- (count ranked-population)
                (count survivors)))
-    (loop [new-population []]
+    (loop [new-population (vec (map second survivors))]
       (if (= population-size (count new-population))
         new-population
         (do
           (recur (conj new-population
-                       (breed-new-genome survivors))))))))
+                       (mutate-genome
+                        (breed-new-genome survivors)
+                        @*mutation-rate*
+                        @*chromosome-mutation-rate*))))))))
+
+(defn run-simulation [initial-population stop-score max-iterations]
+  (loop [population initial-population generation-number 1]
+    (let [ranked-population (rank-population population)]
+      (prn "")
+      (prn (format "best[%s]: %s" generation-number (first ranked-population)))
+      (if (or
+           (<= max-iterations generation-number)
+           (>= (first (first ranked-population))
+               stop-score))
+        (first ranked-population)
+        (recur (make-next-generation population)
+               (inc generation-number))))))
+
+
 
 (comment
+
+  (do
+    (prn "starting simulation")
+    (time (run-simulation (gen-population 1000) 0.9 1000)))
+
   (breed-new-genome (scored-population (gen-population 10)))
   (count (make-next-generation (gen-population 10)))
 
