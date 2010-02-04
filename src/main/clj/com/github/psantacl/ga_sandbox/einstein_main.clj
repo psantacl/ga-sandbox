@@ -138,7 +138,7 @@
        :pred
        (fn [houses]
          (some #(and (= :Dane (house-nationality %))
-                     (= :tea  (house-pet %)))
+                     (= :tea  (house-drink %)))
                houses))}
       {:name "4. The green house is just to the left of the white one."
        :pred
@@ -160,11 +160,11 @@
          (some #(and (= :PallMall   (house-tobacco %))
                      (= :birds      (house-pet %)))
                houses))}
-      {:name "7. The owner of the yellow house smokes Dunhills."
+      {:name "7. The owner of the yellow house smokes Dunhill."
        :pred
        (fn [houses]
          (some #(and (= :yellow    (house-color %))
-                     (= :Dunhills  (house-tobacco %)))
+                     (= :Dunhill  (house-tobacco %)))
                houses))}
       {:name "8. The man in the center house drinks milk."
        :pred
@@ -274,7 +274,7 @@
   (let [[fscore father] (rand-scored-pair-weighted scored-population)
         [mscore mother] (rand-scored-pair-weighted scored-population)]
     (log "breed-new-genome: father=%s mother=%s" father mother)
-    (vec (pmap (fn [idx]
+    (vec (map (fn [idx]
                  (if (= 0 (.nextInt *rand* 2))
                    (nth father idx)
                    (nth mother idx)))
@@ -314,16 +314,18 @@
 (def *mutation-rate* (atom 0.5))
 (def *chromosome-mutation-rate* (atom 0.25))
 
-(defn make-next-generation [ranked-population mutator-fn]
+(defn make-next-generation [ranked-population mutator-fn survival-rate]
   (let [population-size   (count ranked-population)
-        survivors         (take (/ (count ranked-population) 2)
+        survivors         (take (* (count ranked-population) survival-rate)
                                 ranked-population)]
     (log "contraulations to %s of you, you survived! (out of %s, with %s deaths, sorry, please play again)"
             (count survivors)
             (count ranked-population)
             (- (count ranked-population)
                (count survivors)))
-    (loop [new-population (vec (map mutator-fn (map second survivors)))]
+    ;; NB: we know how many we have to create - why not use a (for [nn in (range (/ (count ranked-population 2)))] (breed...))
+    ;; it should be significantly faster than a loop/recur
+    (loop [new-population (vec (map #(mutator-fn (second %)) survivors))]
       (if (= population-size (count new-population))
         new-population
         (do
@@ -335,21 +337,23 @@
   (let [stop-score        (:stop-score params)
         max-iterations    (:max-iterations params)
         fitness-fn        (:fitness-fn params)
-        mutator-fn        (:mutator-fn params)]
+        mutator-fn        (:mutator-fn params)
+        survival-rate     (:survival-rate params)
+        report-fn         (:report-fn params (fn [generation-number ranked-population params]
+                                               (println (format "\nbest[%s]: %s" generation-number (first ranked-population)))))]
     (loop [population        initial-population
            generation-number 1]
       (let [ranked-population (rank-population population fitness-fn)]
-        (prn "")
-        (prn (format "best[%s]: %s" generation-number (first ranked-population)))
+        (report-fn generation-number ranked-population params)
         (if (or
              (<= max-iterations generation-number)
              (>= (first (first ranked-population))
                  stop-score))
-          (first ranked-population) ;; done, win?
-          (recur (make-next-generation ranked-population mutator-fn)
+          (do
+            (prn "Simulation Terminated: %s" params)
+            (first ranked-population)) ;; done, win?
+          (recur (make-next-generation ranked-population mutator-fn survival-rate)
                  (inc generation-number)))))))
-
-
 
 (comment
 
@@ -358,6 +362,7 @@
     (time (run-simulation (gen-population 1000)
                           {:stop-score     1.0
                            :max-iterations 100
+                           :survival-rate  0.50
                            :mutator-fn     (fn [genome] (mutate-genome genome @*mutation-rate* @*chromosome-mutation-rate*))
                            :fitness-fn     einstein-fitness-score
                            })))
@@ -367,9 +372,36 @@
     (time (run-simulation (gen-population 1000)
                           {:stop-score     1.0
                            :max-iterations 100
-                           :mutator-fn     (fn [genome] (mutate-genome genome 0.33 0.10))
+                           :survival-rate  0.50
+                           :mutator-fn     (fn [genome] (mutate-genome genome 0.40 0.10))
+                           :report-fn      (fn [generation-number [best & not-best] params]
+                                             (println (format "best[%s]: %s" generation-number best))
+                                             (doseq [spec *all-fitness-predicates*]
+                                               (if (not ((:pred spec) (get-houses (second best))))
+                                                 (println (format "  failed: %s" spec)))))
                            :fitness-fn     einstein-fitness-score
                            })))
+
+  (do
+    (prn "starting simulation")
+    (time (run-simulation (gen-population 500)
+                          {:stop-score     1.0
+                           :max-iterations 1000
+                           :mutator-fn     (fn [genome] (mutate-genome genome 0.33 0.15))
+                           :fitness-fn     einstein-fitness-score
+                           })))
+
+
+(einstein-fitness-score [:red :Englishman :bier :BlueMaster :horses :blue :Swede :tea :Dunhill :dogs :green :Norwegian :coffee :Blend :fish :white :German :water :Prince :cats :yellow :Dane :milk :Dunhill :birds])
+
+(let [best [0.9 [:green :German :coffee :Prince :birds :white :Norwegian :tea :PallMall :birds :blue :Dane :tea :Blend :horses :yellow :Swede :water :Dunhill :dogs :red :Englishman :bier :BlueMaster :fish]]]
+  (doseq [spec *all-fitness-predicates*]
+    (if (not ((:pred spec) (get-houses (second best))))
+     (println (format "  failed: %s" spec)))))
+
+         (some #(and (= :Dane (house-nationality %))
+                     (= :tea  (house-pet %)))
+               (get-houses [:green :German :coffee :Prince :birds :white :Norwegian :tea :PallMall :birds :blue :Dane :tea :Blend :horses :yellow :Swede :water :Dunhill :dogs :red :Englishman :bier :BlueMaster :fish]))
 
   )
 
