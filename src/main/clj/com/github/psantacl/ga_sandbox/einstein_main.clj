@@ -65,6 +65,9 @@
 
 (def *rand* (java.util.Random.))
 
+(defn flip-coin []
+  (= 0 (.nextInt *rand* 2)))
+
 (defn rand-elt [lst]
   (nth lst (.nextInt *rand* (count lst))))
 
@@ -275,7 +278,7 @@
         [mscore mother] (rand-scored-pair-weighted scored-population)]
     (log "breed-new-genome: father=%s mother=%s" father mother)
     (vec (map (fn [idx]
-                 (if (= 0 (.nextInt *rand* 2))
+                 (if (flip-coin)
                    (nth father idx)
                    (nth mother idx)))
                (range (count father))))))
@@ -297,19 +300,21 @@
                    (nth genome idx))))
     genome))
 
-(comment
+(defn random-chromosome-swap [genome]
+  (let [chromosome-offset (rand-int 5)
+        ch1 (+ chromosome-offset (* 5 (rand-int 5)))
+        ch2 (+ chromosome-offset (* 5 (rand-int 5)))]
+    (assoc genome ch1 (nth genome ch2) ch2 (nth genome ch1))))
 
-
-
-
-  (let [g    (random-genome)
-        rate 0.1
-        m    (mutate-genome g 0.5 rate)]
-    (prn (format "%s %s!" rate (if (= g m) "same" "different")))
-    (prn (format "genome:  %s" g))
-    (prn (format "mutated: %s" m)))
-
-)
+(defn mutate-genome+chromosome-swap [genome mutation-rate chromosome-mutation-rate]
+  (if (<= (.nextFloat *rand*) mutation-rate)
+    (if (flip-coin) ;; make this another parameter? -- the swap rate?
+      (random-chromosome-swap genome)
+      (vec (for [idx (range (count genome))]
+             (if (<= (.nextFloat *rand*) chromosome-mutation-rate)
+               (rand-elt (nth *genome-template* idx))
+               (nth genome idx)))))
+    genome))
 
 (def *mutation-rate* (atom 0.5))
 (def *chromosome-mutation-rate* (atom 0.25))
@@ -361,19 +366,9 @@
     (prn "starting simulation")
     (time (run-simulation (gen-population 1000)
                           {:stop-score     1.0
-                           :max-iterations 100
-                           :survival-rate  0.50
-                           :mutator-fn     (fn [genome] (mutate-genome genome @*mutation-rate* @*chromosome-mutation-rate*))
-                           :fitness-fn     einstein-fitness-score
-                           })))
-
-  (do
-    (prn "starting simulation")
-    (time (run-simulation (gen-population 500)
-                          {:stop-score     1.0
-                           :max-iterations 2000
-                           :survival-rate  0.50
-                           :mutator-fn     (fn [genome] (mutate-genome genome 0.40 0.10))
+                           :max-iterations 250
+                           :survival-rate  0.60
+                           :mutator-fn     (fn [genome] (mutate-genome+chromosome-swap genome 0.40 0.30))
                            :report-fn      (fn [generation-number [best & not-best] params]
                                              (println (format "best[%s]: %s" generation-number best))
                                              (doseq [spec *all-fitness-predicates*]
@@ -381,16 +376,6 @@
                                                  (println (format "  failed: %s" (:name spec))))))
                            :fitness-fn     einstein-fitness-score
                            })))
-
-  (do
-    (prn "starting simulation")
-    (time (run-simulation (gen-population 500)
-                          {:stop-score     1.0
-                           :max-iterations 1000
-                           :mutator-fn     (fn [genome] (mutate-genome genome 0.33 0.15))
-                           :fitness-fn     einstein-fitness-score
-                           })))
-
 
   )
 
