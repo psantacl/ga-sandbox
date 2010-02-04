@@ -350,7 +350,7 @@
              (>= (first (first ranked-population))
                  stop-score))
           (do
-            (prn "Simulation Terminated: %s" params)
+            (println (format "Simulation Terminated: best:%s params:%s" (first ranked-population) params))
             (first ranked-population)) ;; done, win?
           (recur (make-next-generation ranked-population mutator-fn survival-rate)
                  (inc generation-number)))))))
@@ -369,16 +369,16 @@
 
   (do
     (prn "starting simulation")
-    (time (run-simulation (gen-population 1000)
+    (time (run-simulation (gen-population 500)
                           {:stop-score     1.0
-                           :max-iterations 100
+                           :max-iterations 2000
                            :survival-rate  0.50
                            :mutator-fn     (fn [genome] (mutate-genome genome 0.40 0.10))
                            :report-fn      (fn [generation-number [best & not-best] params]
                                              (println (format "best[%s]: %s" generation-number best))
                                              (doseq [spec *all-fitness-predicates*]
                                                (if (not ((:pred spec) (get-houses (second best))))
-                                                 (println (format "  failed: %s" spec)))))
+                                                 (println (format "  failed: %s" (:name spec))))))
                            :fitness-fn     einstein-fitness-score
                            })))
 
@@ -392,17 +392,6 @@
                            })))
 
 
-(einstein-fitness-score [:red :Englishman :bier :BlueMaster :horses :blue :Swede :tea :Dunhill :dogs :green :Norwegian :coffee :Blend :fish :white :German :water :Prince :cats :yellow :Dane :milk :Dunhill :birds])
-
-(let [best [0.9 [:green :German :coffee :Prince :birds :white :Norwegian :tea :PallMall :birds :blue :Dane :tea :Blend :horses :yellow :Swede :water :Dunhill :dogs :red :Englishman :bier :BlueMaster :fish]]]
-  (doseq [spec *all-fitness-predicates*]
-    (if (not ((:pred spec) (get-houses (second best))))
-     (println (format "  failed: %s" spec)))))
-
-         (some #(and (= :Dane (house-nationality %))
-                     (= :tea  (house-pet %)))
-               (get-houses [:green :German :coffee :Prince :birds :white :Norwegian :tea :PallMall :birds :blue :Dane :tea :Blend :horses :yellow :Swede :water :Dunhill :dogs :red :Englishman :bier :BlueMaster :fish]))
-
   )
 
 
@@ -412,6 +401,13 @@
 
 
 (defn -main [& args]
-  (prn "in teh mainz"))
+  (time (run-simulation (gen-population 1000)
+                        {:stop-score     1.0
+                         :max-iterations 100
+                         :survival-rate  0.50
+                         :mutator-fn     (fn [genome] (mutate-genome genome @*mutation-rate* @*chromosome-mutation-rate*))
+                         :fitness-fn     einstein-fitness-score
+                         })))
+
 
 
