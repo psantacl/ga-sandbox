@@ -377,6 +377,21 @@
                            :fitness-fn     einstein-fitness-score
                            })))
 
+  ;; Other ideas for testing / tweaking / reporting
+  ;; do several runs, vary the core params (survival rate, mutation probability and rate, swap rate)
+  ;;   track (and plot):
+  ;;     rate of improvement
+  ;;     diversity of population
+  ;;     # of generations necessary to reach a solution
+  ;; vary aspects like:
+  ;;   enable / disable: valid chromosome swap (make it random)
+  ;;   enable / disable: genome template (just use a random property)
+
+  ;; TODO: the fitness functions are very slow, consider not
+  ;; marshalling to/from a list of houses, just access the genome
+  ;; vector directly from those functions, it should be significatly
+  ;; faster.
+
   )
 
 
