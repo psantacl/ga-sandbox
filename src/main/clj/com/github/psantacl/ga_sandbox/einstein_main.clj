@@ -248,17 +248,17 @@
   (for [x (range 0 size)]
     (random-genome)))
 
-(defn scored-population [population]
+(defn scored-population [population fitness-fn]
   (pmap
-   (fn [g] [(einstein-fitness-score g) g])
+   (fn [g] [(fitness-fn g) g])
    population))
 
 
-(defn rank-population [population]
+(defn rank-population [population fitness-fn]
   (sort (fn [a b]
           (> (first a)
              (first b)))
-        (scored-population population)))
+        (scored-population population fitness-fn)))
 
 (defn rand-scored-pair-weighted [pairs]
   (let [total-weight (apply + (map first pairs))
@@ -314,9 +314,8 @@
 (def *mutation-rate* (atom 0.5))
 (def *chromosome-mutation-rate* (atom 0.25))
 
-(defn make-next-generation [population]
-  (let [population-size   (count population)
-        ranked-population (rank-population population)
+(defn make-next-generation [ranked-population mutator-fn]
+  (let [population-size   (count ranked-population)
         survivors         (take (/ (count ranked-population) 2)
                                 ranked-population)]
     (log "contraulations to %s of you, you survived! (out of %s, with %s deaths, sorry, please play again)"
@@ -324,28 +323,31 @@
             (count ranked-population)
             (- (count ranked-population)
                (count survivors)))
-    (loop [new-population (vec (map second survivors))]
+    (loop [new-population (vec (map mutator-fn (map second survivors)))]
       (if (= population-size (count new-population))
         new-population
         (do
           (recur (conj new-population
-                       (mutate-genome
-                        (breed-new-genome survivors)
-                        @*mutation-rate*
-                        @*chromosome-mutation-rate*))))))))
+                       (mutator-fn
+                        (breed-new-genome survivors)))))))))
 
-(defn run-simulation [initial-population stop-score max-iterations]
-  (loop [population initial-population generation-number 1]
-    (let [ranked-population (rank-population population)]
-      (prn "")
-      (prn (format "best[%s]: %s" generation-number (first ranked-population)))
-      (if (or
-           (<= max-iterations generation-number)
-           (>= (first (first ranked-population))
-               stop-score))
-        (first ranked-population)
-        (recur (make-next-generation population)
-               (inc generation-number))))))
+(defn run-simulation [initial-population params]
+  (let [stop-score        (:stop-score params)
+        max-iterations    (:max-iterations params)
+        fitness-fn        (:fitness-fn params)
+        mutator-fn        (:mutator-fn params)]
+    (loop [population        initial-population
+           generation-number 1]
+      (let [ranked-population (rank-population population fitness-fn)]
+        (prn "")
+        (prn (format "best[%s]: %s" generation-number (first ranked-population)))
+        (if (or
+             (<= max-iterations generation-number)
+             (>= (first (first ranked-population))
+                 stop-score))
+          (first ranked-population) ;; done, win?
+          (recur (make-next-generation ranked-population mutator-fn)
+                 (inc generation-number)))))))
 
 
 
@@ -353,56 +355,22 @@
 
   (do
     (prn "starting simulation")
-    (time (run-simulation (gen-population 1000) 1.0 1000)))
+    (time (run-simulation (gen-population 1000)
+                          {:stop-score     1.0
+                           :max-iterations 100
+                           :mutator-fn     (fn [genome] (mutate-genome genome @*mutation-rate* @*chromosome-mutation-rate*))
+                           :fitness-fn     einstein-fitness-score
+                           })))
 
   (do
     (prn "starting simulation")
-    (time (run-simulation (gen-population 1000) 1.0 100)))
+    (time (run-simulation (gen-population 1000)
+                          {:stop-score     1.0
+                           :max-iterations 100
+                           :mutator-fn     (fn [genome] (mutate-genome genome 0.33 0.10))
+                           :fitness-fn     einstein-fitness-score
+                           })))
 
-  (breed-new-genome (scored-population (gen-population 10)))
-  (count (make-next-generation (gen-population 10)))
-
-  (defn rand-elt-weighted [scores]
-    (let [total-weight (apply + scores)
-          target       (* (.nextFloat *rand*) total-weight)]
-      (loop [[curr & scores] scores
-             score           0]
-        (cond (not curr)        nil
-              (< target (+ score curr))  curr
-              :else                      (recur scores (+ score curr))))))
-
-  (map (fn [x] (rand-elt-weighted [10 1]))
-       (range 10))
-
-
-  (count (rank-population (gen-population 10)))
-  (count (scored-population (gen-population 10)))
-
-  (make-next-generation (gen-population 10))
-
-
-  (def x (random-genome))
-
-  x
-  [:red :Englishman :tea :Dunhill :dogs :blue :Norwegian :water :PallMall :horses :red :Swede :bier :PallMall :dogs :green :Dane :milk :Blend :birds :red :Englishman :tea :Prince :horses]
-  (get-house x 1)
-  (= x (vec (apply concat (map #(get-house x %) (range 0 5)))))
-
-  (house-pet (get-house x 1))
-
-  (get-houses x)
-
-  (einstein-fitness-score [:red   :Englishman    :tea   :Dunhill   :dogs
-                           :blue  :Norwegian     :water :PallMall  :horses
-                           :green :Swede         :bier  :PallMall  :dogs
-                           :green :Dane          :milk  :Blend     :birds
-                           :blue  :Englishman    :tea   :Prince    :horses])
-
-  (einstein-fitness-score [:green  :Englishman    :tea   :Dunhill   :dogs
-                           :white  :Norwegian     :water :PallMall  :horses
-                           :green  :Swede         :bier  :PallMall  :dogs
-                           :green  :Dane          :milk  :Blend     :birds
-                           :blue   :Englishman    :tea   :Prince    :horses])
   )
 
 
