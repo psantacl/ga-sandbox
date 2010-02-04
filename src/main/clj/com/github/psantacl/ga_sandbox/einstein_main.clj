@@ -403,7 +403,7 @@
 (defn -main [& args]
   (time (run-simulation (gen-population 1000)
                         {:stop-score     1.0
-                         :max-iterations 100
+                         :max-iterations 1000
                          :survival-rate  0.50
                          :mutator-fn     (fn [genome] (mutate-genome genome @*mutation-rate* @*chromosome-mutation-rate*))
                          :fitness-fn     einstein-fitness-score
