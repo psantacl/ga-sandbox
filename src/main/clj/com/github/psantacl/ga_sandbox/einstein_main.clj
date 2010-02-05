@@ -65,6 +65,9 @@
 
 (def *rand* (java.util.Random.))
 
+(defn rand-float []
+  (.nextFloat *rand*))
+
 (defn flip-coin []
   (= 0 (.nextInt *rand* 2)))
 
@@ -88,11 +91,10 @@
 
 ;; (random-house)
 
-(defn random-genome []
+(defn einstein-random-genome []
   (vec (apply concat (for [x (range 5)]
                        (random-house)))))
 
-;; (random-genome)
 
 (defn get-house [genome house-number]
   (let [offset (* house-number 5)]
@@ -247,7 +249,7 @@
                       *all-fitness-predicates*))]
     (/ (* 1.0 score) (count *all-fitness-predicates*))))
 
-(defn gen-population [size]
+(defn gen-population [size random-genome]
   (for [x (range 0 size)]
     (random-genome)))
 
@@ -265,7 +267,7 @@
 
 (defn rand-scored-pair-weighted [pairs]
   (let [total-weight (apply + (map first pairs))
-        target       (* (.nextFloat *rand*) total-weight)]
+        target       (* (rand-float) total-weight)]
     (loop [[elt & pairs] pairs
            score         0]
       (log "rand-scored-pair-weighted elt=%s score=%s target=%s" elt score target)
@@ -284,18 +286,18 @@
                (range (count father))))))
 
 (defn mutate-genome-1 [genome mutation-rate chromosome-mutation-rate]
-  (if (<= (.nextFloat *rand*) mutation-rate)
+  (if (<= (rand-float) mutation-rate)
     (vec (map (fn [chromosome]
-                (if (<= (.nextFloat *rand*) chromosome-mutation-rate)
+                (if (<= (rand-float) chromosome-mutation-rate)
                   (rand-elt *all-attribute-values*)
                   chromosome))
               genome))
     genome))
 
 (defn mutate-genome [genome mutation-rate chromosome-mutation-rate]
-  (if (<= (.nextFloat *rand*) mutation-rate)
+  (if (<= (rand-float) mutation-rate)
     (vec (for [idx (range (count genome))]
-           (if (<= (.nextFloat *rand*) chromosome-mutation-rate)
+           (if (<= (rand-float) chromosome-mutation-rate)
                    (rand-elt (nth *genome-template* idx))
                    (nth genome idx))))
     genome))
@@ -307,11 +309,11 @@
     (assoc genome ch1 (nth genome ch2) ch2 (nth genome ch1))))
 
 (defn mutate-genome+chromosome-swap [genome mutation-rate chromosome-mutation-rate]
-  (if (<= (.nextFloat *rand*) mutation-rate)
+  (if (<= (rand-float) mutation-rate)
     (if (flip-coin) ;; make this another parameter? -- the swap rate?
       (random-chromosome-swap genome)
       (vec (for [idx (range (count genome))]
-             (if (<= (.nextFloat *rand*) chromosome-mutation-rate)
+             (if (<= (rand-float) chromosome-mutation-rate)
                (rand-elt (nth *genome-template* idx))
                (nth genome idx)))))
     genome))
@@ -338,6 +340,11 @@
                        (mutator-fn
                         (breed-new-genome survivors)))))))))
 
+(def *stop-simulation* (atom false))
+
+(defn stop-simulation []
+  (reset! *stop-simulation* true))
+
 (defn run-simulation [initial-population params]
   (let [stop-score        (:stop-score params)
         max-iterations    (:max-iterations params)
@@ -346,11 +353,13 @@
         survival-rate     (:survival-rate params)
         report-fn         (:report-fn params (fn [generation-number ranked-population params]
                                                (println (format "\nbest[%s]: %s" generation-number (first ranked-population)))))]
+    (reset! *stop-simulation* false)
     (loop [population        initial-population
            generation-number 1]
       (let [ranked-population (rank-population population fitness-fn)]
         (report-fn generation-number ranked-population params)
         (if (or
+             @*stop-simulation*
              (<= max-iterations generation-number)
              (>= (first (first ranked-population))
                  stop-score))
@@ -364,9 +373,9 @@
 
   (do
     (prn "starting simulation")
-    (time (run-simulation (gen-population 1000)
+    (time (run-simulation (gen-population 1000 einstein-random-genome)
                           {:stop-score     1.0
-                           :max-iterations 250
+                           :max-iterations 10 ; 3000
                            :survival-rate  0.60
                            :mutator-fn     (fn [genome] (mutate-genome+chromosome-swap genome 0.40 0.30))
                            :report-fn      (fn [generation-number [best & not-best] params]
@@ -374,8 +383,27 @@
                                              (doseq [spec *all-fitness-predicates*]
                                                (if (not ((:pred spec) (get-houses (second best))))
                                                  (println (format "  failed: %s" (:name spec))))))
-                           :fitness-fn     einstein-fitness-score
-                           })))
+                           :fitness-fn     einstein-fitness-score})))
+
+  ;; max=1k
+  ;;  run.1 solution in 122 generations
+  ;;  run.2 no solution after 1k generations
+  ;;  run.3 no solution after 1k generations
+  ;;  run.4 no solution after 1k generations
+  ;; max=2k
+  ;;  run.1 solution in 118
+  ;;  run.2 no solution after 2k
+  ;;  run.2 solution in 206
+  ;; max=3k
+  ;;  run.1 solution in 154 generations
+  ;;  run.2 no solution after 3k
+  ;;  run.3 solution in 136 generations
+  ;;  run.4 solution in 180 generations
+  ;;  run.4 solution in 231 generations
+  ;;  run.5 no solution after 3k
+  ;;  run.6 solution in 232 generations
+  ;;  run.7 solution in 114 generations
+  ;;  run.7 solution in 2317 generations
 
   ;; Other ideas for testing / tweaking / reporting
   ;; do several runs, vary the core params (survival rate, mutation probability and rate, swap rate)
@@ -386,6 +414,11 @@
   ;; vary aspects like:
   ;;   enable / disable: valid chromosome swap (make it random)
   ;;   enable / disable: genome template (just use a random property)
+  ;;
+  ;; Allow an initial population to be supplied rather than be
+  ;; generated randomly this would allow you to play with other
+  ;; starting points (should reduce the variability between test runs
+  ;; with other parametric variations).
 
   ;; TODO: the fitness functions are very slow, consider not
   ;; marshalling to/from a list of houses, just access the genome

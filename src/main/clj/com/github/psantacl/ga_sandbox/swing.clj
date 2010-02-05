@@ -1,6 +1,8 @@
 (ns com.github.psantacl.ga-sandbox.swing
   (:require [com.github.psantacl.ga-sandbox.einstein-main :as einstein]))
 
+(comment
+
 (def *icons*
   {
    :colors {
@@ -182,3 +184,4 @@
 
 )
 
+)
