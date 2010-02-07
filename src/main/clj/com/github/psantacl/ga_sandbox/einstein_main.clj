@@ -1,5 +1,7 @@
 (ns com.github.psantacl.ga-sandbox.einstein-main
-  (:gen-class))
+  (:gen-class)
+  (:use clojure.contrib.duck-streams)
+  (:use clojure.contrib.str-utils))
 
 ;; http://www.stanford.edu/~laurik/fsmbook/examples/Einstein%27sPuzzle.html
 
@@ -364,26 +366,57 @@
              (>= (first (first ranked-population))
                  stop-score))
           (do
-            (println (format "Simulation Terminated: best:%s params:%s" (first ranked-population) params))
+            println (format "Simulation Terminated: best:%s params:%s" (first ranked-population) params)
             (first ranked-population)) ;; done, win?
           (recur (make-next-generation ranked-population mutator-fn survival-rate)
                  (inc generation-number)))))))
 
+(def zeroed-distribution (sorted-map  0 0 0.05 0 0.1 0 0.15 0 0.2 0 0.25 0 0.3 0 0.35 0 0.4 0 0.45 0 0.5 0
+                   0.55 0 0.6 0 0.65 0 0.7 0 0.75 0 0.8 0 0.85 0 0.9 0 0.95 0 1.0 0))
+
+
+(defn pretty-print-map [da-map]
+  (str-join "" (reverse (reduce (fn [l key] (cons (format "%-5s" (da-map key)) l))
+                         '() (keys da-map)))))
+
+
+(defn log-distributions [generation-number ranked-population]
+  (append-spit "data.txt" (format "%-3s: %s\n"
+                           generation-number
+                           (pretty-print-map (reduce (fn [map key]
+                                                       (assoc map key (inc (or (map key) 0))))
+                                                     zeroed-distribution (map #(first %) ranked-population )))))
+  )
+
 (comment
+
 
   (do
     (prn "starting simulation")
     (time (run-simulation (gen-population 1000 einstein-random-genome)
                           {:stop-score     1.0
-                           :max-iterations 10 ; 3000
+                           :max-iterations java.lang.Long/MAX_VALUE;
                            :survival-rate  0.60
                            :mutator-fn     (fn [genome] (mutate-genome+chromosome-swap genome 0.40 0.30))
-                           :report-fn      (fn [generation-number [best & not-best] params]
-                                             (println (format "best[%s]: %s" generation-number best))
+;;                            :report-fn      (fn [generation-number [best & not-best] params]
+;;                                              (println (format "best[%s]: %s" generation-number best))
+;;                                              (doseq [spec *all-fitness-predicates*]
+;;                                                (if (not ((:pred spec) (get-houses (second best))))
+;;                                                  (println (format "  failed: %s" (:name spec))))))
+;;                            :report-fn      (fn [generation-number [best & not-best] params]
+;;                                              (println (format "best[%s]: %s" generation-number best))
+;;                                              (println (format "chicken %s:" (reduce (fn [map key]
+;;                                                                                        (assoc map key (inc (or (map key) 0))))
+;;                                                                                      zeroed-distribution (map #(first %) (cons best not-best)) )
+;;                                                               ))
+                           :report-fn        (fn [generation-number [best & not-best] params]
+                                               (log-distributions generation-number (cons best not-best))
                                              (doseq [spec *all-fitness-predicates*]
                                                (if (not ((:pred spec) (get-houses (second best))))
                                                  (println (format "  failed: %s" (:name spec))))))
                            :fitness-fn     einstein-fitness-score})))
+  (stop-simulation)
+
 
   ;; max=1k
   ;;  run.1 solution in 122 generations
@@ -434,7 +467,7 @@
 
 
 (defn -main [& args]
-  (time (run-simulation (gen-population 1000)
+  (time (run-simulation (gen-population 1000 einstein-random-genome)
                         {:stop-score     1.0
                          :max-iterations 1000
                          :survival-rate  0.50
