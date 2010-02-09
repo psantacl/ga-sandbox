@@ -286,7 +286,6 @@
                           {:stop-score     1.0
                            :max-iterations 500 ; 3000
                            :survival-fn    (fn [ranked-population] (ga/random-weighted-survives ranked-population (* 0.80 (count ranked-population))))
-                           ;;:survival-fn    (fn [ranked-population] (ga/random-weighted-survives ranked-population (* 0.60 (count ranked-population))))
                            :mutator-fn     (fn [genome] (mutate-genome+chromosome-swap genome 0.40 0.30))
 ;;                            :report-fn      (fn [generation-number [best & not-best] params]
 ;;                                              (println (format "best[%s]: %s" generation-number best))
