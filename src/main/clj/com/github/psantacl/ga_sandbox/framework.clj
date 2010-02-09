@@ -85,10 +85,25 @@
 (defn stop-simulation []
   (reset! *stop-simulation* true))
 
+(defn random-chromosome-swap [genome]
+  (let [ch1 (rand-int (count genome))
+        ch2 (rand-int (count genome))]
+    (assoc genome
+      (nth genome ch2)
+      (nth genome ch1))))
+
 (defn make-top-n-percent-survives [n]
   (fn [ranked-population]
    (take (* (count ranked-population) n)
          ranked-population)))
+
+(defn random-weighted-survives [ranked-population max]
+  (loop [survivors []]
+    (if (>= (count survivors)
+            max)
+      survivors
+      (recur (cons (rand-scored-pair-weighted ranked-population)
+                   survivors)))))
 
 (defn gen-population [size random-genome]
   (for [x (range 0 size)]

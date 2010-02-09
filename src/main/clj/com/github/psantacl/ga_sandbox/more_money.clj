@@ -127,11 +127,21 @@
 
 (defn mm-mutate-genome [genome mutation-rate chromosome-mutation-rate]
   (if (<= (ga/rand-float) mutation-rate)
-    (vec (for [idx (range (count genome))]
-           (if (<= (ga/rand-float) chromosome-mutation-rate)
-             (rand-int 10)
-             (nth genome idx))))
+    (if (ga/flip-coin)
+      (ga/random-chromosome-swap genome)
+      (vec (for [idx (range (count genome))]
+             (if (<= (ga/rand-float) chromosome-mutation-rate)
+               (rand-int 10)
+               (nth genome idx)))))
     genome))
+
+
+(defn mm-survives [ranked-population]
+  (let [survivors (ga/random-weighted-survives ranked-population (* 0.60 (count ranked-population)))]
+    (println (format "mm-survives: out of %s, %s survived this round"
+                     (count ranked-population)
+                     (count survivors)))
+    survivors))
 
 (comment
 
@@ -139,7 +149,8 @@
     (prn "starting simulation")
     (time (ga/run-simulation (ga/gen-population 1000 mm-random-genome)
                              {:stop-score     1.0
-                              :max-iterations 50
+                              :max-iterations 100
+                              :survival-fn    mm-survives
                               :mutator-fn     (fn [genome] (mm-mutate-genome genome 0.20 0.40))
                               :report-fn      (fn [generation-number [best & not-best] params]
                                                 (println (format "best[%s]: %s" generation-number best))
