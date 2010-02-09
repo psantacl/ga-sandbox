@@ -137,24 +137,35 @@
 
 
 (defn mm-survives [ranked-population]
-  (let [survivors (ga/random-weighted-survives ranked-population (* 0.60 (count ranked-population)))]
+  (let [survivors (ga/random-weighted-survives ranked-population (* 0.80 (count ranked-population)))]
     (println (format "mm-survives: out of %s, %s survived this round"
                      (count ranked-population)
                      (count survivors)))
     survivors))
 
+(defn mm-report [generation-number population params]
+  (let [[best & not-best] population
+        histogram (ga/histogram-population population)]
+    (println (format "best[%s]: %s, avg: %3.2f%%" generation-number best
+                     (* 100.0 (/ (apply + (map first population)) (count population)))))
+    (println (format "%s unique genomes, %3.2f diversity, top 10 are %3.2f%% of the population"
+                     (count (keys histogram))
+                     (/ (* 1.0 (count (keys histogram)))
+                        (count population))
+                     (/ (* 1.0 (apply + (map first (take 10 histogram))))
+                        (count population))))
+    (pp-mm-genome (second best))))
+
 (comment
 
     (do
     (prn "starting simulation")
-    (time (ga/run-simulation (ga/gen-population 1000 mm-random-genome)
+    (time (ga/run-simulation (ga/gen-population 750 mm-random-genome)
                              {:stop-score     1.0
-                              :max-iterations 100
+                              :max-iterations 500
                               :survival-fn    mm-survives
                               :mutator-fn     (fn [genome] (mm-mutate-genome genome 0.20 0.40))
-                              :report-fn      (fn [generation-number [best & not-best] params]
-                                                (println (format "best[%s]: %s" generation-number best))
-                                                (pp-mm-genome (second best)))
+                              :report-fn      mm-report
                               :fitness-fn     mm-fitness-score})))
 
     (ga/stop-simulation)

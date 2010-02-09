@@ -109,6 +109,27 @@
   (for [x (range 0 size)]
     (random-genome)))
 
+
+(defn count-scored-population [scored-population]
+  (reduce (fn [val [score genome]]
+            (assoc val
+              genome
+              (inc (val genome 0))))
+          {}
+          scored-population))
+
+(defn histogram-population [scored-population]
+  (let [counts (count-scored-population scored-population)
+        pairs  (reduce (fn [res k]
+                         (cons [(counts k) k]
+                               res))
+                       []
+                       (keys counts))]
+    (sort (fn [a b]
+            (> (first a)
+               (first b)))
+          pairs)))
+
 (defn run-simulation [initial-population params]
   (let [stop-score        (:stop-score params)
         max-iterations    (:max-iterations params)
