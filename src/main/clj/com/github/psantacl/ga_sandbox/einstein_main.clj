@@ -1,7 +1,9 @@
 (ns com.github.psantacl.ga-sandbox.einstein-main
   (:require
    [com.github.psantacl.ga-sandbox.framework :as ga])
-  (:gen-class))
+  (:gen-class)
+  (:use clojure.contrib.duck-streams)
+  (:use clojure.contrib.str-utils))
 
 ;; http://www.stanford.edu/~laurik/fsmbook/examples/Einstein%27sPuzzle.html
 
@@ -260,6 +262,21 @@
 (def *mutation-rate* (atom 0.5))
 (def *chromosome-mutation-rate* (atom 0.25))
 
+(def zeroed-distribution (sorted-map  0 0 0.05 0 0.1 0 0.15 0 0.2 0 0.25 0 0.3 0 0.35 0 0.4 0 0.45 0 0.5 0
+                   0.55 0 0.6 0 0.65 0 0.7 0 0.75 0 0.8 0 0.85 0 0.9 0 0.95 0 1.0 0))
+
+
+(defn pretty-print-map [da-map]
+  (str-join "" (reverse (reduce (fn [l key] (cons (format "%-5s" (da-map key)) l))
+                         '() (keys da-map)))))
+
+
+(defn log-distributions [generation-number ranked-population]
+  (append-spit "data.txt" (format "%-3s: %s\n"
+                           generation-number
+                           (pretty-print-map (reduce (fn [map key]
+                                                       (assoc map key (inc (or (map key) 0))))
+                                                     zeroed-distribution (map #(first %) ranked-population ))))))
 
 (comment
 
@@ -267,15 +284,31 @@
     (prn "starting simulation")
     (time (ga/run-simulation (ga/gen-population 1000 einstein-random-genome)
                           {:stop-score     1.0
-                           :max-iterations 10 ; 3000
-                           :survival-fn    (fn [ranked-population] (ga/random-weighted-survives ranked-population (* 0.60 (count ranked-population))))
+                           :max-iterations 500 ; 3000
+                           :survival-fn    (fn [ranked-population] (ga/random-weighted-survives ranked-population (* 0.80 (count ranked-population))))
+                           ;;:survival-fn    (fn [ranked-population] (ga/random-weighted-survives ranked-population (* 0.60 (count ranked-population))))
                            :mutator-fn     (fn [genome] (mutate-genome+chromosome-swap genome 0.40 0.30))
-                           :report-fn      (fn [generation-number [best & not-best] params]
-                                             (println (format "best[%s]: %s" generation-number best))
-                                             (doseq [spec *all-fitness-predicates*]
-                                               (if (not ((:pred spec) (get-houses (second best))))
-                                                 (println (format "  failed: %s" (:name spec))))))
+;;                            :report-fn      (fn [generation-number [best & not-best] params]
+;;                                              (println (format "best[%s]: %s" generation-number best))
+;;                                              (doseq [spec *all-fitness-predicates*]
+;;                                                (if (not ((:pred spec) (get-houses (second best))))
+;;                                                  (println (format "  failed: %s" (:name spec))))))
+;;                            :report-fn      (fn [generation-number [best & not-best] params]
+;;                                              (println (format "best[%s]: %s" generation-number best))
+;;                                              (println (format "chicken %s:" (reduce (fn [map key]
+;;                                                                                        (assoc map key (inc (or (map key) 0))))
+;;                                                                                      zeroed-distribution (map #(first %) (cons best not-best)) )
+;;                                                               ))
+                           :report-fn        (fn [generation-number [best & not-best] params]
+                                               ;; (log-distributions generation-number (cons best not-best))
+                                               (println (format "best[%s] %s" generation-number best))
+                                               (doseq [spec *all-fitness-predicates*]
+                                                 (if (not ((:pred spec) (get-houses (second best))))
+                                                   (println (format "  failed: %s" (:name spec))))))
                            :fitness-fn     einstein-fitness-score})))
+
+  (ga/stop-simulation)
+
 
   ;; max=1k
   ;;  run.1 solution in 122 generations
@@ -327,6 +360,7 @@
 
 (defn -main [& args]
   (println "do something"))
+
 
 
 
